@@ -3,17 +3,23 @@
 
 #include <QOpenGLWidget>
 #include <QWidget>
+#include <QOpenGLFunctions_3_3_Core>
+#include <QOpenGLTexture>
 
-//forward declarations
-class QPaintEvent;
-
-class OGLWidget : public QOpenGLWidget
+class OGLWidget : public QOpenGLWidget, protected QOpenGLFunctions_3_3_Core
 {
     Q_OBJECT
 public:
     OGLWidget(QWidget* parent = nullptr);
+    virtual ~OGLWidget();
 
-    void paintEvent(QPaintEvent* event);
+protected:
+    void initializeGL() override;
+    void resizeGL(int w, int h) override;
+    void paintGL() override;
+
+private:
+    QOpenGLTexture* texture = nullptr;
 };
 
 #endif // OGLWIDGET_H
