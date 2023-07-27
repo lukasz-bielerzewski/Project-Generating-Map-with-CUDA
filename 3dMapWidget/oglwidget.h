@@ -5,6 +5,7 @@
 #include <QWidget>
 #include <QOpenGLFunctions_3_3_Core>
 #include <QOpenGLTexture>
+#include <QImage>
 
 class OGLWidget : public QOpenGLWidget, protected QOpenGLFunctions_3_3_Core
 {
@@ -17,9 +18,12 @@ protected:
     void initializeGL() override;
     void resizeGL(int w, int h) override;
     void paintGL() override;
+    void loadImage();
+    void transformToTexture();
 
 private:
     QOpenGLTexture* texture = nullptr;
+    QImage* image = nullptr;
 };
 
 #endif // OGLWIDGET_H

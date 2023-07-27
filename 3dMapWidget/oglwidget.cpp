@@ -1,7 +1,5 @@
 #include "oglwidget.h"
 
-#include <QImage>
-
 OGLWidget::OGLWidget(QWidget* parent) : QOpenGLWidget(parent)
 {
 
@@ -22,20 +20,8 @@ void OGLWidget::initializeGL()
     // Enable texturing
     glEnable(GL_TEXTURE_2D);
 
-    // Load and prepare the image
-    QImage image("office_kt0/rgb/1.png");
-    if (image.isNull()) {
-        qWarning("Failed to load image.");
-        return;
-    }
-
-    // Convert image to OpenGL format
-    image = image.convertToFormat(QImage::Format_RGBA8888);
-
-    // Create a texture from the image
-    this->texture = new QOpenGLTexture(image.mirrored());
-    this->texture->setMinificationFilter(QOpenGLTexture::Nearest);
-    this->texture->setMagnificationFilter(QOpenGLTexture::Nearest);
+    this->loadImage();
+    this->transformToTexture();
 }
 
 void OGLWidget::resizeGL(int w, int h)
@@ -77,4 +63,25 @@ void OGLWidget::paintGL()
     if (this->texture) {
         this->texture->release();
     }
+}
+
+void OGLWidget::loadImage()
+{
+    // Load and prepare the image
+    this->image = new QImage("office_kt0/rgb/1.png");
+    if (image->isNull()) {
+        qWarning("Failed to load image.");
+        return;
+    }
+}
+
+void OGLWidget::transformToTexture()
+{
+    // Convert image to OpenGL format
+    QImage temp = this->image->convertToFormat(QImage::Format_RGBA8888);
+
+    // Create a texture from the image
+    this->texture = new QOpenGLTexture(temp.mirrored());
+    this->texture->setMinificationFilter(QOpenGLTexture::Nearest);
+    this->texture->setMagnificationFilter(QOpenGLTexture::Nearest);
 }
