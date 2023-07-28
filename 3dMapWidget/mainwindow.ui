@@ -6,12 +6,12 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1145</width>
-    <height>667</height>
+    <width>920</width>
+    <height>518</height>
    </rect>
   </property>
   <property name="windowTitle">
-   <string>MainWindow</string>
+   <string>3D Map Generator</string>
   </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QHBoxLayout" name="horizontalLayout" stretch="1,0,3">
@@ -68,7 +68,8 @@
               <string>...</string>
              </property>
              <property name="icon">
-              <iconset theme="call-start"/>
+              <iconset theme="call-start">
+               <normaloff>.</normaloff>.</iconset>
              </property>
             </widget>
            </item>
@@ -254,6 +255,12 @@
         <height>500</height>
        </size>
       </property>
+      <property name="baseSize">
+       <size>
+        <width>660</width>
+        <height>500</height>
+       </size>
+      </property>
       <property name="frameShape">
        <enum>QFrame::StyledPanel</enum>
       </property>
@@ -274,7 +281,14 @@
         <number>10</number>
        </property>
        <item>
-        <widget class="OGLWidget" name="openGLWidget"/>
+        <widget class="OGLWidget" name="openGLWidget">
+         <property name="minimumSize">
+          <size>
+           <width>640</width>
+           <height>480</height>
+          </size>
+         </property>
+        </widget>
        </item>
       </layout>
      </widget>

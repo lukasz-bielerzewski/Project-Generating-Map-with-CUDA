@@ -7,7 +7,7 @@ OGLWidget::OGLWidget(QWidget* parent) : QOpenGLWidget(parent)
 
 OGLWidget::~OGLWidget()
 {
-
+    delete this->image;
 }
 
 void OGLWidget::initializeGL()
@@ -21,7 +21,7 @@ void OGLWidget::initializeGL()
     glEnable(GL_TEXTURE_2D);
 
     this->loadImage();
-    this->transformToTexture();
+    this->transformToPointCloud();
 }
 
 void OGLWidget::resizeGL(int w, int h)
@@ -30,15 +30,18 @@ void OGLWidget::resizeGL(int w, int h)
     glViewport(0, 0, w, h);
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
+
+    // Calculate scaling factors to stretch the point cloud
+    float scaleX = static_cast<float>(w) / static_cast<float>(this->originalWidth);
+    float scaleY = static_cast<float>(h) / static_cast<float>(this->originalHeight);
+
     glOrtho(0, w, h, 0, -1, 1);
-
-    // Flip the y-axis
-    glScalef(1, -1, 1);
-
-    // Translate the coordinate system to the top-left corner
-    glTranslatef(0, -h, 0);
+    glScalef(scaleX, scaleY, 1.0f);
 
     glMatrixMode(GL_MODELVIEW);
+
+    // Trigger a repaint to show the point cloud
+    update();
 }
 
 void OGLWidget::paintGL()
@@ -46,23 +49,14 @@ void OGLWidget::paintGL()
     // Render code
     glClear(GL_COLOR_BUFFER_BIT);
 
-    // Bind the image texture
-    if (this->texture) {
-        this->texture->bind();
+    // Render the point cloud
+    glPointSize(1.0f);
+    glBegin(GL_POINTS);
+    for (const auto& point : pointCloud) {
+        glColor3f(point.second.redF(), point.second.greenF(), point.second.blueF());
+        glVertex2f(point.first.x(), point.first.y());
     }
-
-    // Render the image as a quad
-    glBegin(GL_QUADS);
-    glTexCoord2f(0.0f, 0.0f); glVertex2f(0.0f, 0.0f);
-    glTexCoord2f(1.0f, 0.0f); glVertex2f(width(), 0.0f);
-    glTexCoord2f(1.0f, 1.0f); glVertex2f(width(), height());
-    glTexCoord2f(0.0f, 1.0f); glVertex2f(0.0f, height());
     glEnd();
-
-    // Unbind the image texture
-    if (this->texture) {
-        this->texture->release();
-    }
 }
 
 void OGLWidget::loadImage()
@@ -73,15 +67,28 @@ void OGLWidget::loadImage()
         qWarning("Failed to load image.");
         return;
     }
+
+    this->originalWidth = this->image->width();
+    this->originalHeight = this->image->height();
 }
 
-void OGLWidget::transformToTexture()
+void OGLWidget::transformToPointCloud()
 {
-    // Convert image to OpenGL format
-    QImage temp = this->image->convertToFormat(QImage::Format_RGBA8888);
+    // Convert image to point cloud with pixel colors
+    pointCloud.clear();
+    const int threshold = 0; // Adjust this threshold as needed
+    for (int y = 0; y < this->image->height(); ++y) {
+        for (int x = 0; x < this->image->width(); ++x) {
+            QRgb pixel = this->image->pixel(x, y);
+            int grayValue = qGray(pixel);
+            if (grayValue > threshold) {
+                float xpos = static_cast<float>(x);
+                float ypos = static_cast<float>(y);
+                QVector3D position(xpos, ypos, 0.0f);
+                QColor color(pixel);
 
-    // Create a texture from the image
-    this->texture = new QOpenGLTexture(temp.mirrored());
-    this->texture->setMinificationFilter(QOpenGLTexture::Nearest);
-    this->texture->setMagnificationFilter(QOpenGLTexture::Nearest);
+                pointCloud.append({ position, color });
+            }
+        }
+    }
 }
