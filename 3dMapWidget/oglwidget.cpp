@@ -7,6 +7,7 @@ OGLWidget::OGLWidget(QWidget* parent) : QOpenGLWidget(parent)
 
 OGLWidget::~OGLWidget()
 {
+    //test
     delete this->image;
     delete this->depthImage;
 }
