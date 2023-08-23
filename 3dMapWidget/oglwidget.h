@@ -4,7 +4,6 @@
 #include <QOpenGLWidget>
 #include <QWidget>
 #include <QOpenGLFunctions_3_3_Core>
-#include <QOpenGLTexture>
 #include <QImage>
 #include <QVector3D>
 #include <QColor>
@@ -25,6 +24,7 @@ protected:
 
 private:
     QImage* image = nullptr;
+    QImage* depthImage = nullptr;
     QVector<QPair<QVector3D, QColor>> pointCloud;
 
     int originalWidth = 1;
