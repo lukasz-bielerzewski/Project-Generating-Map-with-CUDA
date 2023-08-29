@@ -7,6 +7,9 @@
 #include <QImage>
 #include <QVector3D>
 #include <QColor>
+#include <QMouseEvent>
+#include <QPoint>
+#include <QMatrix4x4>
 
 class OGLWidget : public QOpenGLWidget, protected QOpenGLFunctions_3_3_Core
 {
@@ -22,6 +25,10 @@ protected:
     void loadImage();
     void transformToPointCloud();
 
+    void mousePressEvent(QMouseEvent* event) override;
+    void mouseMoveEvent(QMouseEvent* event) override;
+
+
 private:
     QImage* image = nullptr;
     QImage* depthImage = nullptr;
@@ -29,6 +36,10 @@ private:
 
     int originalWidth = 1;
     int originalHeight = 1;
+
+    QPoint lastMousePos;
+    QMatrix4x4 rotationMatrix;
+
 };
 
 #endif // OGLWIDGET_H
