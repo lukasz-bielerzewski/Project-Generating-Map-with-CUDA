@@ -76,7 +76,7 @@ void OGLWidget::paintGL()
 void OGLWidget::loadImage()
 {
     // Load and prepare the image
-    this->image = new QImage("/home/maks//foto/salon/rgb/1.png");
+    this->image = new QImage("office_kt0/rgb/1.png");
     if (image->isNull()) {
         qWarning("Failed to load image.");
         return;
@@ -85,7 +85,7 @@ void OGLWidget::loadImage()
     this->originalWidth = this->image->width();
     this->originalHeight = this->image->height();
 
-    this->depthImage = new QImage("/home/maks//foto/salon/depth/1.png");
+    this->depthImage = new QImage("office_kt0/depth/1.png");
     if (depthImage->isNull()) {
         qWarning("Failed to load depthImage.");
         return;
