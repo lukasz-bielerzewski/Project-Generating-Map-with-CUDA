@@ -1,9 +1,13 @@
 #include "oglwidget.h"
 
+#include <cmath>
 
 OGLWidget::OGLWidget(QWidget* parent) : QOpenGLWidget(parent)
 {
-
+    this->cx = 319.5f;
+    this->cy = -239.5f;
+    this->focal_x = 481.2f;
+    this->focal_y = -480.f;
 }
 
 OGLWidget::~OGLWidget()
@@ -24,9 +28,6 @@ void OGLWidget::initializeGL()
     this->transformToPointCloud();
 
     rotationMatrix.setToIdentity();
-
-
-
 }
 
 void OGLWidget::resizeGL(int w, int h)
@@ -40,7 +41,7 @@ void OGLWidget::resizeGL(int w, int h)
     float scaleX = static_cast<float>(w) / static_cast<float>(this->originalWidth);
     float scaleY = static_cast<float>(h) / static_cast<float>(this->originalHeight);
 
-    glOrtho(0.f, static_cast<float>(w), static_cast<float>(h), 0.f, -1500.f, 1500.f);
+    glOrtho(0.f, static_cast<float>(w), static_cast<float>(h), 0.f, -99999.f, 99999.f);
     glScalef(scaleX, scaleY, 1.0f);
 
     glMatrixMode(GL_MODELVIEW);
@@ -67,8 +68,6 @@ void OGLWidget::paintGL()
         glVertex3f(point.first.x(), point.first.y(), point.first.z());
     }
     glEnd();
-
-    qDebug() << "paint";
 }
 
 
@@ -85,7 +84,7 @@ void OGLWidget::loadImage()
     this->originalWidth = this->image->width();
     this->originalHeight = this->image->height();
 
-    this->depthImage = new QImage("office_kt0/depth/1.png");
+    this->depthImage = new QImage("office_kt0/depth/1.png", "QImage::Format_Grayscale16");
     if (depthImage->isNull()) {
         qWarning("Failed to load depthImage.");
         return;
@@ -96,14 +95,22 @@ void OGLWidget::transformToPointCloud()
 {
     // Convert image to point cloud with pixel colors
     pointCloud.clear();
+
+    float scalling_factor;
+
     for (int y = 0; y < this->image->height(); ++y) {
         for (int x = 0; x < this->image->width(); ++x) {
             QRgb pixel = this->image->pixel(x, y);
-            QRgb depthPixel = this->depthImage->pixel(x,y);
-            int grayValue = qGray(depthPixel);
+            qint16 grayValue = this->depthImage->pixel(x,y);
             float xpos = static_cast<float>(x);
             float ypos = static_cast<float>(y);
-            float zpos = static_cast<float>(grayValue)*10;
+
+            // Euclidean to Planar depth conversion
+            scalling_factor = sqrt((x - this->cx) * (x - this->cx) + (y - this->cy) * (y - this->cy) + this->focal_x * this->focal_x) / this->focal_x;
+            float zpos = static_cast<float>(grayValue) / scalling_factor;
+
+            qDebug() << " z =" << zpos ;
+
             QVector3D position(xpos, ypos, zpos);
             QColor color(pixel);
 
@@ -122,8 +129,8 @@ void OGLWidget::mousePressEvent(QMouseEvent* event)
 void OGLWidget::mouseMoveEvent(QMouseEvent* event)
 {
     QVector2D diff = QVector2D(event->pos() - lastMousePos);
-    rotationMatrix.rotate(diff.x(), 0.0f, 1.0f, 0.0f); // Yaw rotation
-    rotationMatrix.rotate(diff.y(), 1.0f, 0.0f, 0.0f); // Pitch rotation
+    rotationMatrix.rotate(diff.x() / 100.f, 0.0f, 1.0f, 0.0f); // Yaw rotation
+    rotationMatrix.rotate(diff.y() / 100.f, 1.0f, 0.0f, 0.0f); // Pitch rotation
 
     // Store the current mouse position for the next movement
     lastMousePos = event->pos();
