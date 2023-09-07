@@ -10,6 +10,8 @@
 #include <QMouseEvent>
 #include <QPoint>
 #include <QMatrix4x4>
+#include <QMatrix3x3>
+#include <QCoreApplication>
 
 class OGLWidget : public QOpenGLWidget, protected QOpenGLFunctions_3_3_Core
 {
@@ -27,7 +29,10 @@ protected:
 
     void mousePressEvent(QMouseEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
+    void keyPressEvent(QKeyEvent* event) override;
 
+
+    float getDepthVal(int x, int y);
 
 private:
     QImage* image = nullptr;
@@ -39,6 +44,12 @@ private:
 
     QPoint lastMousePos;
     QMatrix4x4 rotationMatrix;
+
+    float cx;
+    float cy;
+    float focal_x;
+    float focal_y;
+
 
 };
 
