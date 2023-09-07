@@ -175,6 +175,11 @@ void OGLWidget::keyPressEvent(QKeyEvent* event)
         // Move right
         rotationMatrix.translate(right);
     }
+    else if (event->key() == Qt::Key_R)
+    {
+        // Reset view to original position
+        rotationMatrix.setToIdentity();
+    }
 
     // Trigger a repaint to update the rendered image
     update();
