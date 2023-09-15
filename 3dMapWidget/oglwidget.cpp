@@ -31,6 +31,10 @@ void OGLWidget::initializeGL()
     this->transformToPointCloud();
 
     rotationMatrix.setToIdentity();
+
+    std::vector<std::vector<double>> trajectoryData;
+    readTrajectoryData("/home/maks/foto/biuro/trajectory.txt", trajectoryData);
+
 }
 
 void OGLWidget::resizeGL(int w, int h)
@@ -94,6 +98,42 @@ void OGLWidget::loadImage()
         return;
     }
 }
+
+void OGLWidget::readTrajectoryData(const std::string& filePath, std::vector<std::vector<double>>& trajectoryData)
+{
+    // Open the file
+    std::ifstream file(filePath);
+    if (!file.is_open())
+    {
+        qDebug() << "Failed to open trajectory file: " << filePath.c_str();
+        return;
+    }
+
+    // Read and parse the data line by line
+    std::string line;
+    while (std::getline(file, line))
+    {
+        std::istringstream iss(line);
+        std::vector<double> rowData;
+        double value;
+
+        // Skip the first column and read the rest
+        iss >> value;
+        while (iss >> value)
+        {
+            rowData.push_back(value);
+        }
+
+        if (!rowData.empty())
+        {
+            trajectoryData.push_back(rowData);
+        }
+    }
+
+    // Close the file
+    file.close();
+}
+
 
 void OGLWidget::transformToPointCloud()
 {
@@ -165,12 +205,12 @@ void OGLWidget::keyPressEvent(QKeyEvent* event)
         // Move backward
         rotationMatrix.translate(-forward);
     }
-    else if (event->key() == Qt::Key_A)
+    else if (event->key() == Qt::Key_D)
     {
         // Move left
         rotationMatrix.translate(-right);
     }
-    else if (event->key() == Qt::Key_D)
+    else if (event->key() == Qt::Key_A)
     {
         // Move right
         rotationMatrix.translate(right);
