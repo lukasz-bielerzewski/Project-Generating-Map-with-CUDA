@@ -12,6 +12,10 @@
 #include <QMatrix4x4>
 #include <QMatrix3x3>
 #include <QCoreApplication>
+#include <fstream>
+#include <vector>
+#include <string>
+#include <sstream>
 
 class OGLWidget : public QOpenGLWidget, protected QOpenGLFunctions_3_3_Core
 {
@@ -30,6 +34,7 @@ protected:
     void mousePressEvent(QMouseEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
     void keyPressEvent(QKeyEvent* event) override;
+    void readTrajectoryData(const std::string& filePath, std::vector<std::vector<double>>& trajectoryData);
 
 
     float getDepthVal(int x, int y);
