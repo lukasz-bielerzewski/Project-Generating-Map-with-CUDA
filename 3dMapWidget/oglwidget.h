@@ -12,6 +12,12 @@
 #include <QMatrix4x4>
 #include <QMatrix3x3>
 
+#include <fstream>
+#include <string>
+#include <sstream>
+
+#include "octree.h"
+
 class OGLWidget : public QOpenGLWidget, protected QOpenGLFunctions_3_3_Core
 {
     Q_OBJECT
@@ -23,11 +29,14 @@ protected:
     void initializeGL() override;
     void resizeGL(int w, int h) override;
     void paintGL() override;
+
     void loadImage();
     void transformToPointCloud();
+    void readTrajectoryData(const std::string& filePath, std::vector<std::vector<double>>& trajectoryData);
 
     void mousePressEvent(QMouseEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
+    void keyPressEvent(QKeyEvent* event) override;
 
     float getDepthVal(int x, int y);
 
@@ -46,6 +55,10 @@ private:
     float cy;
     float focal_x;
     float focal_y;
+
+    std::vector<std::vector<double>> trajectoryData;
+
+    Octree *octreeMap;
 };
 
 #endif // OGLWIDGET_H

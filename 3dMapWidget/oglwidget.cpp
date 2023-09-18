@@ -8,6 +8,11 @@ OGLWidget::OGLWidget(QWidget* parent) : QOpenGLWidget(parent)
     this->cy = -239.5f;
     this->focal_x = 481.2f;
     this->focal_y = -480.f;
+
+    this->setFocus();
+    this->setFocusPolicy(Qt::StrongFocus);
+
+    this->octreeMap = new Octree(0.f, 0.f, 0.f, 10000.f, 1250.f);
 }
 
 OGLWidget::~OGLWidget()
@@ -15,6 +20,7 @@ OGLWidget::~OGLWidget()
 
     delete this->image;
     delete this->depthImage;
+    delete this->octreeMap;
 }
 
 void OGLWidget::initializeGL()
@@ -28,6 +34,8 @@ void OGLWidget::initializeGL()
     this->transformToPointCloud();
 
     rotationMatrix.setToIdentity();
+
+    this->readTrajectoryData("/home/rezzec/Project-Generating-Map-with-CUDA/build-3dMapWidget-Desktop_Qt_6_5_1_GCC_64bit-Debug/office_kt0/traj0.txt", this->trajectoryData);
 }
 
 void OGLWidget::resizeGL(int w, int h)
@@ -109,7 +117,7 @@ void OGLWidget::transformToPointCloud()
             scalling_factor = sqrt((x - this->cx) * (x - this->cx) + (y - this->cy) * (y - this->cy) + this->focal_x * this->focal_x) / this->focal_x;
             float zpos = static_cast<float>(grayValue) / scalling_factor;
 
-            qDebug() << " z =" << zpos ;
+            this->octreeMap->insertPoint({xpos, ypos, zpos});
 
             QVector3D position(xpos, ypos, zpos);
             QColor color(pixel);
@@ -117,7 +125,45 @@ void OGLWidget::transformToPointCloud()
             pointCloud.append({ position, color });
         }
     }
+
+    this->octreeMap->printVoxels();
 }
+
+void OGLWidget::readTrajectoryData(const std::string& filePath, std::vector<std::vector<double>>& trajectoryData)
+{
+    // Open the file
+    std::ifstream file(filePath);
+    if (!file.is_open())
+    {
+        qDebug() << "Failed to open trajectory file: " << filePath.c_str();
+        return;
+    }
+
+    // Read and parse the data line by line
+    std::string line;
+    while (std::getline(file, line))
+    {
+        std::istringstream iss(line);
+        std::vector<double> rowData;
+        double value;
+
+        // Skip the first column and read the rest
+        iss >> value;
+        while (iss >> value)
+        {
+            rowData.push_back(value);
+        }
+
+        if (!rowData.empty())
+        {
+            trajectoryData.push_back(rowData);
+        }
+    }
+
+    // Close the file
+    file.close();
+}
+
 
 
 void OGLWidget::mousePressEvent(QMouseEvent* event)
@@ -139,8 +185,47 @@ void OGLWidget::mouseMoveEvent(QMouseEvent* event)
     update();
 }
 
+void OGLWidget::keyPressEvent(QKeyEvent* event)
+{
+    // Calculate the forward and right vectors based on the current rotation
+    QVector3D forward = -QVector3D(rotationMatrix.column(2));
+    QVector3D right = QVector3D(rotationMatrix.column(0));
+
+    // Scale the vectors to control movement speed
+    float movementSpeed = 100.0f;
+    forward *= movementSpeed;
+    right *= movementSpeed;
+
+    if (event->key() == Qt::Key_W)
+    {
+        // Move forward
+        rotationMatrix.translate(forward);
+    }
+    else if (event->key() == Qt::Key_S)
+    {
+        // Move backward
+        rotationMatrix.translate(-forward);
+    }
+    else if (event->key() == Qt::Key_D)
+    {
+        // Move left
+        rotationMatrix.translate(-right);
+    }
+    else if (event->key() == Qt::Key_A)
+    {
+        // Move right
+        rotationMatrix.translate(right);
+    }
+    else if (event->key() == Qt::Key_R)
+    {
+        // Reset view to original position
+        rotationMatrix.setToIdentity();
+    }
+
+    // Trigger a repaint to update the rendered image
+    update();
 
 
-
-
-
+    // Pass the event to the base class to handle other key presses
+    QOpenGLWidget::keyPressEvent(event);
+}
