@@ -31,11 +31,14 @@ void OGLWidget::initializeGL()
     glClearColor(1.0, 1.0, 1.0, 1.0);
 
     this->loadImage();
+
+    this->readTrajectoryData("/home/maks/foto/biuro/trajectory.txt", this->trajectoryData);
+    
     this->transformToPointCloud();
 
     rotationMatrix.setToIdentity();
 
-    this->readTrajectoryData("/home/maks/foto/biuro/trajectory.txt", this->trajectoryData);
+    
 }
 
 void OGLWidget::resizeGL(int w, int h)
@@ -112,20 +115,15 @@ void OGLWidget::transformToPointCloud()
     // const std::vector<double>& firstPosition = trajectoryData[0];
 
     // Extract the transformation matrix elements
-    //   double Tx =  trajectoryData[0][0];
-    //   double Ty = trajectoryData[0][1];
-    //   double Tz = trajectoryData[0][2];
-    //   double pitch = trajectoryData[0][3];
-    //   double yaw = trajectoryData[0][4];
-    //   double roll = trajectoryData[0][5];
+       
+       double Tx =  trajectoryData[0][0];
+       double Ty = trajectoryData[0][1];
+       double Tz = trajectoryData[0][2];
+       double pitch = trajectoryData[0][3];
+       double yaw = trajectoryData[0][4];
+       double roll = trajectoryData[0][5];
 
-    double Tx = 0.000472546;
-    double Ty = 0.00897074;
-    double Tz = -2.5;
-    double pitch = -0.00101357;
-    double yaw = 0.000506464;
-    double roll = -0.000268899;
-
+    
     qDebug() << "Tx: " << Tx;
     qDebug() << "Ty: " << Ty;
     qDebug() << "Tz: " << Tz;
