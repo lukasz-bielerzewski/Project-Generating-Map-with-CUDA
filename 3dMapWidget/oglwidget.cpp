@@ -8,6 +8,11 @@ OGLWidget::OGLWidget(QWidget* parent) : QOpenGLWidget(parent)
     this->cy = -239.5f;
     this->focal_x = 481.2f;
     this->focal_y = -480.f;
+
+    this->setFocus();
+    this->setFocusPolicy(Qt::StrongFocus);
+
+    this->octreeMap = new Octree(0.f, 0.f, 0.f, 10000.f, 1250.f);
 }
 
 OGLWidget::~OGLWidget()
@@ -15,6 +20,7 @@ OGLWidget::~OGLWidget()
 
     delete this->image;
     delete this->depthImage;
+    delete this->octreeMap;
 }
 
 void OGLWidget::initializeGL()
@@ -24,17 +30,12 @@ void OGLWidget::initializeGL()
     // OpenGL initialization code
     glClearColor(1.0, 1.0, 1.0, 1.0);
 
-    setFocus();
-    setFocusPolicy(Qt::StrongFocus);
-
     this->loadImage();
     this->transformToPointCloud();
 
     rotationMatrix.setToIdentity();
 
-    std::vector<std::vector<double>> trajectoryData;
-    readTrajectoryData("/home/maks/foto/biuro/trajectory.txt", trajectoryData);
-
+    this->readTrajectoryData("/home/maks/foto/biuro/trajectory.txt", this->trajectoryData);
 }
 
 void OGLWidget::resizeGL(int w, int h)
@@ -57,7 +58,6 @@ void OGLWidget::resizeGL(int w, int h)
     // Trigger a repaint to show the point cloud
     update();
 }
-
 
 void OGLWidget::paintGL()
 {
@@ -99,6 +99,78 @@ void OGLWidget::loadImage()
     }
 }
 
+void OGLWidget::transformToPointCloud()
+{
+    // Convert image to point cloud with pixel colors
+    pointCloud.clear();
+
+    float scaling_factor;
+
+    // Check if trajectoryData has at least one position
+
+    // Get the first position from trajectoryData
+    // const std::vector<double>& firstPosition = trajectoryData[0];
+
+    // Extract the transformation matrix elements
+    //   double Tx =  trajectoryData[0][0];
+    //   double Ty = trajectoryData[0][1];
+    //   double Tz = trajectoryData[0][2];
+    //   double pitch = trajectoryData[0][3];
+    //   double yaw = trajectoryData[0][4];
+    //   double roll = trajectoryData[0][5];
+
+    double Tx = 0.000472546;
+    double Ty = 0.00897074;
+    double Tz = -2.5;
+    double pitch = -0.00101357;
+    double yaw = 0.000506464;
+    double roll = -0.000268899;
+
+    qDebug() << "Tx: " << Tx;
+    qDebug() << "Ty: " << Ty;
+    qDebug() << "Tz: " << Tz;
+    qDebug() << "pitch: " << pitch;
+    qDebug() << "yaw: " << yaw;
+    qDebug() << "roll: " << roll;
+
+    // Apply the transformation matrix to xpos, ypos, and zpos
+    for (int y = 0; y < this->image->height(); ++y) {
+        for (int x = 0; x < this->image->width(); ++x) {
+            QRgb pixel = this->image->pixel(x, y);
+            qint16 grayValue = this->depthImage->pixel(x, y);
+            float xpos = static_cast<float>(x);
+            float ypos = static_cast<float>(y);
+
+            // Euclidean to Planar depth conversion
+            scaling_factor = sqrt((x - this->cx) * (x - this->cx) + (y - this->cy) * (y - this->cy) + this->focal_x * this->focal_x) / this->focal_x;
+            float zpos = static_cast<float>(grayValue) / scaling_factor;
+
+            
+            // Create rotation matrix based on pitch, yaw, and roll
+            // Multiply rotation matrix by (xpos, ypos, zpos) and add translation
+            // Update xpos, ypos, and zpos with the transformed values
+
+            float transformed_xpos = xpos * cos(yaw) - ypos * sin(yaw) + Tx;
+            float transformed_ypos = xpos * sin(yaw) + ypos * cos(yaw) + Ty;
+            float transformed_zpos = zpos + Tz;
+
+            // Update position
+            xpos = transformed_xpos;
+            ypos = transformed_ypos;
+            zpos = transformed_zpos;
+            this->octreeMap->insertPoint({xpos, ypos, zpos});
+
+            QVector3D position(xpos, ypos, zpos);
+            QColor color(pixel);
+
+            pointCloud.append({ position, color });
+        }
+    }
+
+    this->octreeMap->printVoxels();
+
+}
+
 void OGLWidget::readTrajectoryData(const std::string& filePath, std::vector<std::vector<double>>& trajectoryData)
 {
     // Open the file
@@ -135,34 +207,6 @@ void OGLWidget::readTrajectoryData(const std::string& filePath, std::vector<std:
 }
 
 
-void OGLWidget::transformToPointCloud()
-{
-    // Convert image to point cloud with pixel colors
-    pointCloud.clear();
-
-    float scalling_factor;
-
-    for (int y = 0; y < this->image->height(); ++y) {
-        for (int x = 0; x < this->image->width(); ++x) {
-            QRgb pixel = this->image->pixel(x, y);
-            qint16 grayValue = this->depthImage->pixel(x,y);
-            float xpos = static_cast<float>(x);
-            float ypos = static_cast<float>(y);
-
-            // Euclidean to Planar depth conversion
-            scalling_factor = sqrt((x - this->cx) * (x - this->cx) + (y - this->cy) * (y - this->cy) + this->focal_x * this->focal_x) / this->focal_x;
-            float zpos = static_cast<float>(grayValue) / scalling_factor;
-
-            //qDebug() << " z =" << zpos ;
-
-            QVector3D position(xpos, ypos, zpos);
-            QColor color(pixel);
-
-            pointCloud.append({ position, color });
-        }
-    }
-}
-
 
 void OGLWidget::mousePressEvent(QMouseEvent* event)
 {
@@ -175,7 +219,6 @@ void OGLWidget::mouseMoveEvent(QMouseEvent* event)
     QVector2D diff = QVector2D(event->pos() - lastMousePos);
     rotationMatrix.rotate(diff.x() / 100.f, 0.0f, 1.0f, 0.0f); // Yaw rotation
     rotationMatrix.rotate(diff.y() / 100.f, 1.0f, 0.0f, 0.0f); // Pitch rotation
-
 
     // Store the current mouse position for the next movement
     lastMousePos = event->pos();
@@ -224,8 +267,7 @@ void OGLWidget::keyPressEvent(QKeyEvent* event)
     // Trigger a repaint to update the rendered image
     update();
 
+
     // Pass the event to the base class to handle other key presses
     QOpenGLWidget::keyPressEvent(event);
 }
-
-
