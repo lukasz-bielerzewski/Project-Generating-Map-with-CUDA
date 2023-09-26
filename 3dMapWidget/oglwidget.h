@@ -32,7 +32,7 @@ protected:
     void resizeGL(int w, int h) override;
     void paintGL() override;
 
-    void loadImage();
+    void loadImage(int imageIndex);
     void transformToPointCloud();
     void readTrajectoryData(const std::string& filePath, std::vector<std::vector<double>>& trajectoryData);
 
