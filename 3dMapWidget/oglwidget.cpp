@@ -29,8 +29,8 @@ void OGLWidget::initializeGL()
 
     // OpenGL initialization code
     glClearColor(1.0, 1.0, 1.0, 1.0);
-
-    this->loadImage();
+    int imageIndex=0;
+    this->loadImage(imageIndex);
 
     this->readTrajectoryData("/home/maks/foto/biuro/trajectory.txt", this->trajectoryData);
     
@@ -83,10 +83,11 @@ void OGLWidget::paintGL()
 
 
 
-void OGLWidget::loadImage()
+void OGLWidget::loadImage(int imageIndex)
 {
     // Load and prepare the image
-    this->image = new QImage("/home/maks/foto/biuro/rgb/1.png");
+    QString imagePath = QString("/home/maks/foto/biuro/rgb/%1.png").arg(imageIndex);
+    this->image = new QImage(imagePath);
     if (image->isNull()) {
         qWarning("Failed to load image.");
         return;
@@ -95,12 +96,20 @@ void OGLWidget::loadImage()
     this->originalWidth = this->image->width();
     this->originalHeight = this->image->height();
 
-    this->depthImage = new QImage("/home/maks/foto/biuro/depth/1.png", "QImage::Format_Grayscale16");
+    // Load the corresponding depth image
+    QString depthImagePath = QString("/home/maks/foto/biuro/depth/%1.png").arg(imageIndex);
+    this->depthImage = new QImage(depthImagePath, "QImage::Format_Grayscale16");
     if (depthImage->isNull()) {
         qWarning("Failed to load depthImage.");
         return;
     }
+
+    // Increment x in trajectoryData[x][0]
+    if (imageIndex < trajectoryData.size()) {
+        trajectoryData[imageIndex][0] += 1.0; // Increment x value
+    }
 }
+
 
 void OGLWidget::transformToPointCloud()
 {
@@ -108,6 +117,7 @@ void OGLWidget::transformToPointCloud()
     pointCloud.clear();
 
     float scaling_factor;
+    int imageIndex = 0;
 
     // Check if trajectoryData has at least one position
 
@@ -116,12 +126,12 @@ void OGLWidget::transformToPointCloud()
 
     // Extract the transformation matrix elements
        
-       double Tx =  trajectoryData[0][0];
-       double Ty = trajectoryData[0][1];
-       double Tz = trajectoryData[0][2];
-       double pitch = trajectoryData[0][3];
-       double yaw = trajectoryData[0][4];
-       double roll = trajectoryData[0][5];
+       double Tx =  trajectoryData[imageIndex][0];
+       double Ty = trajectoryData[imageIndex][1];
+       double Tz = trajectoryData[imageIndex][2];
+       double pitch = trajectoryData[imageIndex][3];
+       double yaw = trajectoryData[imageIndex][4];
+       double roll = trajectoryData[imageIndex][5];
 
     
     qDebug() << "Tx: " << Tx;
@@ -130,6 +140,9 @@ void OGLWidget::transformToPointCloud()
     qDebug() << "pitch: " << pitch;
     qDebug() << "yaw: " << yaw;
     qDebug() << "roll: " << roll;
+
+    for (int i = 1; i <= 300; ++i) {
+        loadImage(i);
 
     // Apply the transformation matrix to xpos, ypos, and zpos
     for (int y = 0; y < this->image->height(); ++y) {
@@ -143,14 +156,12 @@ void OGLWidget::transformToPointCloud()
             scaling_factor = sqrt((x - this->cx) * (x - this->cx) + (y - this->cy) * (y - this->cy) + this->focal_x * this->focal_x) / this->focal_x;
             float zpos = static_cast<float>(grayValue) / scaling_factor;
 
-            
-            // Create rotation matrix based on pitch, yaw, and roll
-            // Multiply rotation matrix by (xpos, ypos, zpos) and add translation
-            // Update xpos, ypos, and zpos with the transformed values
 
             float transformed_xpos = xpos * cos(yaw) - ypos * sin(yaw) + Tx;
             float transformed_ypos = xpos * sin(yaw) + ypos * cos(yaw) + Ty;
             float transformed_zpos = zpos + Tz;
+
+
 
             // Update position
             xpos = transformed_xpos;
@@ -166,6 +177,10 @@ void OGLWidget::transformToPointCloud()
     }
 
     this->octreeMap->printVoxels();
+    imageIndex++;
+    }
+
+    update();
 
 }
 
