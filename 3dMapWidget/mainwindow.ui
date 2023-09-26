@@ -300,7 +300,7 @@
   <customwidget>
    <class>OGLWidget</class>
    <extends>QOpenGLWidget</extends>
-   <header>/home/rezzec/Project-Generating-Map-with-CUDA/3dMapWidget/oglwidget.h</header>
+   <header>/home/maks/Project-Generating-Map-with-CUDA-Max-s-branch/3dMapWidget/oglwidget.h</header>
   </customwidget>
  </customwidgets>
  <resources/>
