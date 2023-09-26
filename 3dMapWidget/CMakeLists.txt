@@ -20,6 +20,8 @@ set(PROJECT_SOURCES
         oglwidget.h
         oglwidget.cpp
         mainwindow.ui
+        octree.h
+        octree.cpp
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
