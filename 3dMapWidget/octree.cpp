@@ -11,9 +11,10 @@ Octree::~Octree()
     delete rootVoxel;
 }
 
-void Octree::insertPoint(const Point &point)
+void Octree::insertPoint(const Point &point, const QColor &color)
 {
-    this->insertPoint(rootVoxel, point);
+    Eigen::Vector3f _color = Eigen::Vector3f(static_cast<float>(color.red()), static_cast<float>(color.green()), static_cast<float>(color.blue()));
+    this->insertPoint(rootVoxel, point, _color);
 }
 
 void Octree::printVoxels() const
@@ -28,14 +29,31 @@ bool Octree::pointInVoxel(Voxel* voxel, const Point& point)
            (point.z >= voxel->z && point.z <= voxel->z + voxel->sideLength);
 }
 
-void Octree::insertPoint(Voxel* voxel, const Point& point)
+void Octree::insertPoint(Voxel* voxel, const Point& point, const Eigen::Vector3f& color)
 {
     if (!pointInVoxel(voxel, point)) {
         return;
     }
 
     if (voxel->sideLength <= minSideLength) {
+
+        // Update the accumulated color and color count
+        voxel->accumulatedColor += color;
+        voxel->colorCount++;
+
+        // Convert Point to Eigen Vector
+        Eigen::Vector3f pointVec(point.x, point.y, point.z);
+
+        // Update the mean
+        Eigen::Vector3f oldMean = voxel->mean;
+        voxel->mean = (oldMean * voxel->pointCount + pointVec) / (voxel->pointCount + 1);
+
+        // Update the covariance
+        Eigen::Matrix3f pointDiff = (pointVec - oldMean) * (pointVec - voxel->mean).transpose();
+        voxel->covariance = (voxel->covariance * voxel->pointCount + pointDiff) / (voxel->pointCount + 1);
+
         voxel->pointCount++;
+
         return;
     }
 
@@ -52,7 +70,7 @@ void Octree::insertPoint(Voxel* voxel, const Point& point)
     }
 
     for (Voxel* child : voxel->children) {
-        insertPoint(child, point);
+        insertPoint(child, point, color);
     }
 
     voxel->pointCount++;
