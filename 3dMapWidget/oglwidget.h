@@ -6,19 +6,19 @@
 #include <QOpenGLFunctions_3_3_Core>
 #include <QImage>
 #include <QVector3D>
-#include <QColor>
 #include <QMouseEvent>
 #include <QPoint>
 #include <QMatrix4x4>
 #include <QMatrix3x3>
+#include <QString>
 
 #include <fstream>
 #include <string>
 #include <sstream>
 
-#include "octree.h"
+#include <eigen3/Eigen/Geometry>
 
-#include <cmath>
+#include "octree.h"
 
 class OGLWidget : public QOpenGLWidget, protected QOpenGLFunctions_3_3_Core
 {
@@ -42,6 +42,11 @@ protected:
 
     float getDepthVal(int x, int y);
 
+    void renderEllipsoids(const Voxel* voxel);
+    void createUnitSphere();
+
+    void renderSingleEllipsoid();
+
 private:
     QImage* image = nullptr;
     QImage* depthImage = nullptr;
@@ -61,6 +66,39 @@ private:
     std::vector<std::vector<double>> trajectoryData;
 
     Octree *octreeMap;
+
+    GLuint sphereVBO, sphereVAO, sphereEBO;
+    GLsizei sphereIndexCount;
+
+    GLint colorLocation;
+    GLuint shaderProgram;
+    GLint transformLocation;
+
+    void setupShaders();
+
+    const char* vertexShaderSource = R"glsl(
+#version 330 core
+layout (location = 0) in vec3 aPos; // the position variable has attribute position 0
+
+uniform mat4 transform; // transformation matrix
+
+void main()
+{
+    gl_Position = transform * vec4(aPos, 1.0); // transform the vertex position
+}
+)glsl";
+
+    const char* fragmentShaderSource = R"glsl(
+#version 330 core
+out vec4 FragColor;
+
+uniform vec3 color; // uniform color
+
+void main()
+{
+    FragColor = vec4(color, 1.0); // set the output color of the fragment
+}
+)glsl";
 };
 
 #endif // OGLWIDGET_H
