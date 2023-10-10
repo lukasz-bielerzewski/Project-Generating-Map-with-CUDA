@@ -5,7 +5,7 @@
 OGLWidget::OGLWidget(QWidget* parent) : QOpenGLWidget(parent)
 {
     this->cx = 319.5f;
-    this->cy = -239.5f;
+    this->cy = 239.5f;
     this->focal_x = 481.2f;
     this->focal_y = -480.f;
 
