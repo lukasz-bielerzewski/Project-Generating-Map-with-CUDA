@@ -1,6 +1,8 @@
 #include "oglwidget.h"
-
 #include <cmath>
+
+
+
 
 OGLWidget::OGLWidget(QWidget* parent) : QOpenGLWidget(parent)
 {
@@ -12,8 +14,11 @@ OGLWidget::OGLWidget(QWidget* parent) : QOpenGLWidget(parent)
     this->setFocus();
     this->setFocusPolicy(Qt::StrongFocus);
 
-    this->octreeMap = new Octree(0.f, 0.f, 0.f, 25000.f, 3125.f);
+    this->octreeMap = new Octree(0.f, 0.f, 0.f, 10000.f, 1250.f);
+
 }
+
+
 
 OGLWidget::~OGLWidget()
 {
@@ -21,10 +26,6 @@ OGLWidget::~OGLWidget()
     delete this->image;
     delete this->depthImage;
     delete this->octreeMap;
-
-    glDeleteVertexArrays(1, &sphereVAO);
-    glDeleteBuffers(1, &sphereVBO);
-    glDeleteBuffers(1, &sphereEBO);
 }
 
 void OGLWidget::initializeGL()
@@ -32,21 +33,23 @@ void OGLWidget::initializeGL()
     initializeOpenGLFunctions();
 
     // OpenGL initialization code
-    glClearColor(0.0, 0.0, 0.0, 1.0);
+    glClearColor(1.0, 1.0, 1.0, 1.0);
+    int imageIndex=0;
+    this->loadImage(imageIndex);
 
-    int image_index = 0;
-
-    this->loadImage(image_index);
     this->readTrajectoryData("/home/maks/foto/salon/trajectory.txt", this->trajectoryData);
+    
     this->transformToPointCloud();
 
-    setupShaders();
+    this->displayTrajectoryDataPoints();
 
-    // Create the unit sphere geometry
-    createUnitSphere();
+
 
     rotationMatrix.setToIdentity();
+
+    
 }
+
 
 void OGLWidget::resizeGL(int w, int h)
 {
@@ -61,10 +64,8 @@ void OGLWidget::resizeGL(int w, int h)
 
     glOrtho(0.f, static_cast<float>(w), static_cast<float>(h), 0.f, -99999.f, 99999.f);
     glScalef(scaleX, scaleY, 1.0f);
-
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
-
     // Trigger a repaint to show the point cloud
     update();
 }
@@ -78,65 +79,49 @@ void OGLWidget::paintGL()
     glMatrixMode(GL_MODELVIEW);
     glLoadMatrixf(rotationMatrix.constData());
 
+    GLfloat	mat[16];
+    glPushMatrix();
+    glMultMatrixf(mat);
+
+    float lineWidth = 3.0;
+
+    glLineWidth((GLfloat)lineWidth);
+
+    glBegin(GL_LINES);
+
+    glColor3f (1.0, 0.0, 0.0);
+    glVertex3f(0.0, 0.0, 0.0);
+    glVertex3f(1.0, 0.0, 0.0);
+
+    glColor3f (0.0, 1.0, 0.0);
+    glVertex3f(0.0, 0.0, 0.0);
+    glVertex3f(0.0, 1.0, 0.0);
+
+    glColor3f (0.0, 0.0, 1.0);
+    glVertex3f(0.0, 0.0, 0.0);
+    glVertex3f(0.0, 0.0, 1.0);
+    glEnd();
+    glPopMatrix();
+
+
     // Render the point cloud
-//    glPointSize(1.0f);
-//    glBegin(GL_POINTS);
-//    for (const auto& point : pointCloud) {
-//        glColor3f(point.second.redF(), point.second.greenF(), point.second.blueF());
-//        glVertex3f(point.first.x(), point.first.y(), point.first.z());
-//    }
-//    glEnd();
-
-    // Traverse the octree and render ellipsoids for the smallest voxels
-   // renderEllipsoids(octreeMap->rootVoxel);
-
-    renderSingleEllipsoid();
-}
-
-void OGLWidget::renderSingleEllipsoid()
-{
-    // Ensure a shader program is in use
-    glUseProgram(shaderProgram);
-
-    // Define synthetic data for a single ellipsoid
-    Eigen::Vector3f meanColor = Eigen::Vector3f(1.0f, 0.0f, 0.0f); // Red color
-    Eigen::Vector3f center = Eigen::Vector3f(0.0f, 0.0f, 0.0f); // Center at origin
-    Eigen::Matrix3f covariance = Eigen::Matrix3f::Identity() * Eigen::Vector3f(0.1f, 0.2f, 0.3f).asDiagonal(); // Scaled identity matrix
-
-    // Set the color uniform in the fragment shader
-    glUniform3fv(colorLocation, 1, meanColor.data());
-
-    // Compute the eigen decomposition of the covariance matrix
-    Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> solver(covariance);
-
-    // Check if the covariance matrix is positive definite
-    if (solver.info() != Eigen::Success) {
-        qDebug() << "error";
-        return;
+    glPointSize(3.0f);
+    glBegin(GL_POINTS);
+    for (const auto& point : pointCloud) {
+        glColor3f(point.second.redF(), point.second.greenF(), point.second.blueF());
+        glVertex3f(point.first.x(), point.first.y(), point.first.z());
     }
-
-    Eigen::Matrix3f axes = solver.eigenvectors();
-    Eigen::Matrix3f scale = Eigen::Scaling(solver.eigenvalues().cwiseSqrt());
-
-    Eigen::Affine3f transform;
-    transform.fromPositionOrientationScale(center, Eigen::Quaternionf(axes), scale.diagonal());
-
-    // Set the transformation matrix as a uniform variable in the shader
-    glUniformMatrix4fv(transformLocation, 1, GL_FALSE, transform.matrix().data());
-
-    glBindVertexArray(sphereVAO);
-
-    // Draw the unit sphere (transformed to an ellipsoid)
-    glDrawElements(GL_TRIANGLES, sphereIndexCount, GL_UNSIGNED_INT, 0);
+    glEnd();
 }
+
+
 
 void OGLWidget::loadImage(int imageIndex)
 {
     // Load and prepare the image
     QString imagePath = QString("/home/maks/foto/salon/rgb/%1.png").arg(imageIndex);
     this->image = new QImage(imagePath);
-    if (image->isNull())
-    {
+    if (image->isNull()) {
         qWarning("Failed to load image.");
         return;
     }
@@ -144,113 +129,173 @@ void OGLWidget::loadImage(int imageIndex)
     this->originalWidth = this->image->width();
     this->originalHeight = this->image->height();
 
+    // Load the corresponding depth image
     QString depthImagePath = QString("/home/maks/foto/salon/depth/%1.png").arg(imageIndex);
     this->depthImage = new QImage(depthImagePath, "QImage::Format_Grayscale16");
-    if (depthImage->isNull())
-    {
+    if (depthImage->isNull()) {
         qWarning("Failed to load depthImage.");
         return;
     }
 
-    // Increment x in trajectoryData[x][0]
-    if (imageIndex < trajectoryData.size())
-    {
-        trajectoryData[imageIndex][0] += 1.0; // Increment x value
-    }
 }
+
 
 void OGLWidget::transformToPointCloud()
 {
     // Convert image to point cloud with pixel colors
     pointCloud.clear();
 
-    float scalling_factor;
-
-    int imageIndex = 0;
-
-    // Check if trajectoryData has at least one position
-
-    // Get the first position from trajectoryData
-    // const std::vector<double>& firstPosition = trajectoryData[0];
-
-    // Extract the transformation matrix elements
+    int imageIndex=0;
+     int trajectoryIndex = 0;
 
 
-//    qDebug() << "Tx: " << Tx;
-//    qDebug() << "Ty: " << Ty;
-//    qDebug() << "Tz: " << Tz;
-//    qDebug() << "pitch: " << pitch;
-//    qDebug() << "yaw: " << yaw;
-//    qDebug() << "roll: " << roll;
 
-    for (int i = 1; i <= 50; ++i) {
+    float xpos = 0;
+    float ypos = 0;
+
+
+
+    for (int i = 1; i <= 50; i++) {
         loadImage(i);
 
-        double Tx =  this->trajectoryData[imageIndex][0];
-        double Ty = this->trajectoryData[imageIndex][1];
-        double Tz = this->trajectoryData[imageIndex][2];
-        double qx = this->trajectoryData[imageIndex][3];
-        double qy = this->trajectoryData[imageIndex][4];
-        double qz = this->trajectoryData[imageIndex][5];
-        double qw = this->trajectoryData[imageIndex][6];
 
-     //   qDebug() << "Tx: " << Tx;
-     //   qDebug() << "Ty: " << Ty;
-     //   qDebug() << "Tz: " << Tz;
-     //   qDebug() << "pitch: " << qx;
-     //   qDebug() << "yaw: " << qy;
-     //   qDebug() << "roll: " << qz;
-     //   qDebug() << "qw: " << qw;
-
-        for (int y = 0; y < this->image->height(); ++y) {
-            for (int x = 0; x < this->image->width(); ++x) {
-                QRgb pixel = this->image->pixel(x, y);
-                qint16 grayValue = this->depthImage->pixel(x,y);
-                float xpos = static_cast<float>(x);
-                float ypos = static_cast<float>(y);
-
-                // Euclidean to Planar depth conversion
-                scalling_factor = sqrt((x - this->cx) * (x - this->cx) + (y - this->cy) * (y - this->cy) + this->focal_x * this->focal_x) / this->focal_x;
-                float zpos = static_cast<float>(grayValue) / scalling_factor;
-
-               // float t_xpos = xpos * cos(yaw) - ypos * sin(yaw) + Tx;
-               // float t_ypos = xpos * sin(yaw) + ypos * cos(yaw) + Ty;
-               // float t_zpos = zpos + Tz;
-
-                std::vector<std::vector<double>> matrix = {
-                    {1 - 2*qy*qy - 2*qz*qz , 2*qx*qy - 2*qz*qw , 2*qx*qz + 2*qy*qw, Tx},
-                    {2*qx*qy + 2*qz*qw , 1 - 2*qx*qx - 2*qz*qz, 2*qy*qz - 2*qx*qw, Ty},
-                    {2*qx*qz - 2*qy*qw, 2*qy*qz + 2*qx*qw, 1 - 2*qx*qx - 2*qy*qy, Tz},
-                    {0, 0, 0, 1}
-                };
+//        qDebug() << "imageIndex: " << imageIndex;
 
 
+        double Tx =  this->trajectoryData[trajectoryIndex][0];
+        double Ty = this->trajectoryData[trajectoryIndex][1];
+        double Tz = this->trajectoryData[trajectoryIndex][2];
+        double qx = this->trajectoryData[trajectoryIndex][3];
+        double qy = this->trajectoryData[trajectoryIndex][4];
+        double qz = this->trajectoryData[trajectoryIndex][5];
+        double qw = this->trajectoryData[trajectoryIndex][6];
+
+
+        // First row of the rotation matrix
+       float r00 = (2 * (qx * qx + qy * qy)) - 1;
+       float r01 = 2 * (qy * qz - qx * qw);
+       float r02 = 2 * (qy * qw + qx * qz);
+
+        // Second row of the rotation matrix
+       float r10 = 2 * (qy * qz + qx * qw);
+       float r11 = (2 * (qx * qx + qz * qz)) - 1;
+       float r12 = 2 * (qz * qw - qx * qy);
+
+        // Third row of the rotation matrix
+       float r20 = 2 * (qy * qw - qx * qz);
+       float r21 = 2 * (qz * qw + qx * qy);
+       float r22 =(2 * (qx * qx + qw * qw)) - 1;
+
+
+        std::vector<std::vector<double>> matrix = {
+            {r00 , r01 , r02, Tx},
+            {r10 , r11, r12, Ty},
+            {r20, r21, r22, Tz},
+            {0, 0, 0, 1}
+        };
+
+
+
+//           qDebug() << "Tx: " << Tx;
+//           qDebug() << "Ty: " << Ty;
+//           qDebug() << "Tz: " << Tz;
+//           qDebug() << "pitch: " << qx;
+//           qDebug() << "yaw: " << qy;
+//           qDebug() << "roll: " << qz;
+//           qDebug() << "qw: " << qw;
+
+
+        // Apply the transformation matrix to xpos, ypos, and zpos
+        for (int v = 0; v < this->image->height(); ++v) {
+            for (int u = 0; u < this->image->width(); ++u) {
+                QRgb pixel = this->image->pixel(u, v);
+                qint16 grayValue = this->depthImage->pixel(u, v);
+                float zpos = static_cast<float>(grayValue)*1000/65536;
+
+                //Euclidean to Planar depth conversion
+
+                xpos = (u - cx) / focal_x;
+                ypos = (v - cy) / focal_y;
+
+                xpos = -xpos * zpos;
+                ypos = ypos * zpos;
+
+
+//                if(u%10000==0)
+//                {
+//                            qDebug() << "xpos: " << xpos << "ypos:" << ypos << "zpos: " << zpos;
+//                }
+
+                //quaternion to rotation matrix
                 float transformed_xpos = matrix[0][0] * xpos + matrix[0][1] * ypos + matrix[0][2] * zpos + matrix[0][3];
                 float transformed_ypos = matrix[1][0] * xpos + matrix[1][1] * ypos + matrix[1][2] * zpos + matrix[1][3];
                 float transformed_zpos = matrix[2][0] * xpos + matrix[2][1] * ypos + matrix[2][2] * zpos + matrix[2][3];
+
+
 
                 xpos = transformed_xpos;
                 ypos = transformed_ypos;
                 zpos = transformed_zpos;
 
 
-
                 QVector3D position(xpos, ypos, zpos);
+
+
+                this->octreeMap->insertPoint({xpos, ypos, zpos});
+
                 QColor color(pixel);
 
-                this->octreeMap->insertPoint({xpos, ypos, zpos}, color);
+                pointCloud.append({ position, color });
 
-                //pointCloud.append({ position, color });
+
             }
         }
 
-        //this->octreeMap->printVoxels();
-
         imageIndex++;
+        trajectoryIndex = imageIndex-1;
+        displayTrajectoryDataPoints();
+
     }
 
+
+
+
+    update();
+
+}
+
+void OGLWidget::displayTrajectoryDataPoints()
+{
+    // Assuming trajectoryData contains at least 3 values for each cell
+    for (const auto& cell : trajectoryData)
+    {
+        if (cell.size() >= 3)
+        {
+            float xpos = static_cast<float>(cell[0]);
+            float ypos = static_cast<float>(cell[1]);
+            float zpos = static_cast<float>(cell[2]);
+
+            xpos = xpos * 65536/1000;
+            ypos = ypos * 65536/1000;
+            zpos = zpos * 65536/1000;
+
+//            qDebug() << "traj_x: " << xpos << "traj_y: " << ypos << "traj_z" << zpos;
+
+
+
+            // Color the point pink
+            QColor color(Qt::magenta);
+
+            // Create a point at the specified position with the pink color
+            QVector3D position(xpos, ypos, zpos);
+            pointCloud.append({ position, color });
+        }
+    }
+
+    // Trigger a repaint to update the rendered image
     update();
 }
+
 
 void OGLWidget::readTrajectoryData(const std::string& filePath, std::vector<std::vector<double>>& trajectoryData)
 {
@@ -308,6 +353,20 @@ void OGLWidget::mouseMoveEvent(QMouseEvent* event)
     update();
 }
 
+void OGLWidget::wheelEvent(QWheelEvent *event)
+{
+    int numDegrees = event->angleDelta().y() / 8; // Get the wheel rotation value
+
+    // Adjust the zoom factor based on the scroll direction
+    if (numDegrees > 0) {
+        zoomFactor *= 1.1; // Zoom out
+    } else {
+        zoomFactor *= 0.9; // Zoom in
+    }
+
+    update(); // Request widget redraw
+}
+
 void OGLWidget::keyPressEvent(QKeyEvent* event)
 {
     // Calculate the forward and right vectors based on the current rotation
@@ -345,6 +404,7 @@ void OGLWidget::keyPressEvent(QKeyEvent* event)
         rotationMatrix.setToIdentity();
     }
 
+
     // Trigger a repaint to update the rendered image
     update();
 
@@ -353,179 +413,9 @@ void OGLWidget::keyPressEvent(QKeyEvent* event)
     QOpenGLWidget::keyPressEvent(event);
 }
 
-void OGLWidget::renderEllipsoids(const Voxel *voxel)
-{
-    if (voxel->children.empty() && (voxel->pointCount != 0))
-    {
-        // Ensure a shader program is in use
-        glUseProgram(shaderProgram);
 
-        // Compute the mean color
-        Eigen::Vector3f meanColor = voxel->accumulatedColor / voxel->colorCount;
 
-        // Set the color uniform in the fragment shader
-        glUniform3fv(colorLocation, 1, meanColor.data());
 
-        // This is a smallest voxel, render an ellipsoid based on its Gaussian parameters
-        Eigen::Vector3f center = voxel->mean;
-
-        std::cout<< center[0] << " " << center[1] << " " << center[2] << std::endl;
-
-        Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> solver(voxel->covariance);
-
-        // Check if the covariance matrix is positive definite
-        if (solver.info() != Eigen::Success) {
-            // Handle non-positive definite covariance matrix (skip rendering or apply correction)
-            return;
-
-            // Option 2: Apply a correction (e.g., add a small value to the diagonal)
-            // voxel->covariance += Eigen::Matrix3f::Identity() * epsilon;
-            // solver.compute(voxel->covariance);
-        }
-
-        Eigen::Matrix3f axes = solver.eigenvectors();
-        Eigen::Matrix3f scale = Eigen::Scaling(solver.eigenvalues().cwiseSqrt());
-
-        Eigen::Affine3f transform;
-        transform.fromPositionOrientationScale(center, Eigen::Quaternionf(axes), scale.diagonal());
-
-        // Set the transformation matrix as a uniform variable in the shader
-        glUniformMatrix4fv(transformLocation, 1, GL_FALSE, transform.matrix().data());
-
-        glBindVertexArray(sphereVAO);
-
-        // Draw the unit sphere (transformed to an ellipsoid)
-        glDrawElements(GL_TRIANGLES, sphereIndexCount, GL_UNSIGNED_INT, 0);
-    } else {
-        // Traverse the child voxels
-        for (const Voxel* child : voxel->children) {
-            renderEllipsoids(child);
-        }
-    }
-}
-
-void OGLWidget::createUnitSphere()
-{
-    std::vector<GLfloat> vertices;
-    std::vector<GLuint> indices;
-
-    // Define the UV sphere geometry
-    unsigned int numLatitudeSegments = 10; // Number of latitude segments (horizontal)
-    unsigned int numLongitudeSegments = 10; // Number of longitude segments (vertical)
-
-    for (unsigned int i = 0; i <= numLatitudeSegments; ++i) {
-        float theta = i * M_PI / numLatitudeSegments; // Latitude
-        float sinTheta = sin(theta);
-        float cosTheta = cos(theta);
-
-        for (unsigned int j = 0; j <= numLongitudeSegments; ++j) {
-            float phi = j * 2.0f * M_PI / numLongitudeSegments; // Longitude
-            float sinPhi = sin(phi);
-            float cosPhi = cos(phi);
-
-            float x = cosPhi * sinTheta;
-            float y = cosTheta;
-            float z = sinPhi * sinTheta;
-
-            // Vertex positions
-            vertices.push_back(x); // X
-            vertices.push_back(y); // Y
-            vertices.push_back(z); // Z
-        }
-    }
-
-    // Define indices
-    for (unsigned int i = 0; i < numLatitudeSegments; ++i) {
-        for (unsigned int j = 0; j < numLongitudeSegments; ++j) {
-            unsigned int first = (i * (numLongitudeSegments + 1)) + j;
-            unsigned int second = first + numLongitudeSegments + 1;
-
-            indices.push_back(first);
-            indices.push_back(second);
-            indices.push_back(first + 1);
-
-            indices.push_back(second);
-            indices.push_back(second + 1);
-            indices.push_back(first + 1);
-        }
-    }
-
-    glGenVertexArrays(1, &sphereVAO);
-    glGenBuffers(1, &sphereVBO);
-    glGenBuffers(1, &sphereEBO);
-
-    glBindVertexArray(sphereVAO);
-
-    glBindBuffer(GL_ARRAY_BUFFER, sphereVBO);
-    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(GLfloat), vertices.data(), GL_STATIC_DRAW);
-
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, sphereEBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(GLuint), indices.data(), GL_STATIC_DRAW);
-
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
-
-    glBindVertexArray(0);
-
-    sphereIndexCount = indices.size();
-}
-
-void OGLWidget::setupShaders()
-{
-    // Compile vertex shader
-    GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);
-    glCompileShader(vertexShader);
-
-    // Check for vertex shader compile errors
-    GLint success;
-    glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
-    if(!success) {
-        GLchar infoLog[512];
-        glGetShaderInfoLog(vertexShader, 512, NULL, infoLog);
-        std::cerr << "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n" << infoLog << std::endl;
-    }
-
-    // Compile fragment shader
-    GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fragmentShader, 1, &fragmentShaderSource, NULL);
-    glCompileShader(fragmentShader);
-
-    // Check for fragment shader compile errors
-    glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
-    if(!success) {
-        GLchar infoLog[512];
-        glGetShaderInfoLog(fragmentShader, 512, NULL, infoLog);
-        std::cerr << "ERROR::SHADER::FRAGMENT::COMPILATION_FAILED\n" << infoLog << std::endl;
-    }
-
-    // Link shaders to create the shader program
-    shaderProgram = glCreateProgram();
-    glAttachShader(shaderProgram, vertexShader);
-    glAttachShader(shaderProgram, fragmentShader);
-    glLinkProgram(shaderProgram);
-
-    // Check for shader program linking errors
-    glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
-    if(!success) {
-        GLchar infoLog[512];
-        glGetProgramInfoLog(shaderProgram, 512, NULL, infoLog);
-        std::cerr << "ERROR::SHADER::PROGRAM::LINKING_FAILED\n" << infoLog << std::endl;
-    }
-
-    // Get the location of the transform uniform variable
-    transformLocation = glGetUniformLocation(shaderProgram, "transform");
-    if (transformLocation == -1) {
-        std::cerr << "ERROR::SHADER::UNIFORM::TRANSFORM_NOT_FOUND\n";
-    }
-
-    // Get the location of the color uniform variable in the shader program
-    colorLocation = glGetUniformLocation(shaderProgram, "color");
-    if (colorLocation == -1) {
-        std::cerr << "ERROR::SHADER::UNIFORM::COLOR_NOT_FOUND\n";
-    }
-
-    // Delete the vertex and fragment shaders as they're no longer needed once linked into the program
-    glDeleteShader(vertexShader);
-    glDeleteShader(fragmentShader);
-}
+//przyblizyc
+//poprawic wyglad kodu
+//skala
